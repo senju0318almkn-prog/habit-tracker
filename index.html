@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>習慣</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="習慣">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg:     #ffffff;
+      --text:   #000000;
+      --muted:  #888888;
+      --line:   #eeeeee;
+      --fill:   #f5f5f5;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── 共通 ────── */
+    .screen {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      max-width: 430px;
+    }
+
+    .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── セットアップ ────── */
+    #setup {
+      padding: 72px 28px 48px;
+      gap: 14px;
+      min-height: 100vh;
+    }
+
+    .setup-head { margin-bottom: 10px; }
+    .setup-head h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; margin-top: 4px; }
+
+    input[type="text"], input[type="time"] {
+      width: 100%;
+      padding: 15px 0;
+      border: none;
+      border-bottom: 1.5px solid var(--line);
+      background: transparent;
+      font-size: 17px;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+      border-radius: 0;
+      -webkit-appearance: none;
+    }
+    input[type="text"]:focus,
+    input[type="time"]:focus { border-bottom-color: var(--text); }
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    .setup-divider {
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      margin: 4px 0;
+    }
+
+    .join-row { display: flex; gap: 12px; align-items: flex-end; }
+    .join-row input { flex: 1; text-transform: uppercase; letter-spacing: 0.1em; }
+
+    .setup-err { font-size: 13px; color: #ff3b30; display: none; }
+
+    /* ── ボタン ────── */
+    .btn-main {
+      width: 100%;
+      padding: 17px;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      letter-spacing: -0.01em;
+    }
+    .btn-main:active { opacity: 0.7; }
+
+    .btn-sub {
+      width: 100%;
+      padding: 17px;
+      background: transparent;
+      color: var(--text);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-sub:active { opacity: 0.5; }
+
+    .btn-join {
+      padding: 15px 20px;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── メイン ────── */
+    #main { padding-bottom: 60px; }
+
+    /* ヘッダー */
+    .main-top {
+      padding: 52px 28px 20px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .chip {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--fill);
+      border-radius: 20px;
+      padding: 5px 12px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+    }
+    .chip:active { opacity: 0.6; }
+
+    .main-top h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .sub-line {
+      font-size: 15px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+    .sub-line strong { color: var(--text); }
+
+    /* タブ */
+    .tabs {
+      display: flex;
+      padding: 0 28px;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .tab {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--muted);
+      background: none;
+      border: none;
+      padding: 0 0 8px;
+      cursor: pointer;
+      font-family: inherit;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab.on { color: var(--text); border-bottom-color: var(--text); }
+
+    /* ── 自分タブ ────── */
+    .panel { display: none; padding: 0 28px; }
+    .panel.on { display: block; }
+
+    /* 習慣リスト */
+    .habit-row {
+      display: flex;
+      align-items: center;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      gap: 16px;
+    }
+    .habit-row:last-child { border-bottom: none; }
+    .habit-row:active { opacity: 0.5; }
+
+    .habit-body { flex: 1; min-width: 0; }
+    .habit-body h3 {
+      font-size: 17px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .habit-row.done h3 { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+
+    .streak-txt {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .circle {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid var(--line);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .habit-row.done .circle {
+      background: var(--text);
+      border-color: var(--text);
+    }
+    .circle-check { color: white; font-size: 13px; opacity: 0; transition: opacity 0.15s; }
+    .habit-row.done .circle-check { opacity: 1; }
+
+    .hist-btn {
+      font-size: 18px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .hist-btn:active { opacity: 0.4; }
+
+    /* 達成メッセージ */
+    .done-bar {
+      text-align: center;
+      padding: 20px 0 4px;
+      font-size: 14px;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    .done-bar.on { opacity: 1; }
+
+    /* 進捗 */
+    .prog-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0 4px;
+    }
+    .prog-bg {
+      flex: 1;
+      height: 2px;
+      background: var(--line);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      background: var(--text);
+      border-radius: 1px;
+      transition: width 0.4s ease;
+    }
+    .prog-num { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+    /* 空状態 */
+    .empty { padding: 40px 0; color: var(--muted); font-size: 15px; line-height: 1.8; }
+
+    /* ヘッダー日付ナビ */
+    .header-date-nav {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .hd-btn {
+      font-size: 15px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+      font-family: inherit;
+    }
+    .hd-btn:active { opacity: 0.4; }
+    .hd-btn:disabled { opacity: 0.2; cursor: default; }
+    .hd-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: none;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 6px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hd-lbl:active { background: var(--fill); }
+    #date-picker-hidden {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      height: 0;
+    }
+
+    /* リアクション */
+    .react-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .react-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--fill);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 15px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .react-btn.on { background: var(--line); }
+    .react-btn:active { opacity: 0.6; }
+    .react-cnt { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+    /* セクション */
+    .section { margin-top: 36px; }
+    .section > .label { display: block; margin-bottom: 16px; }
+
+    /* 睡眠 */
+    .sleep-grid { display: flex; gap: 0; }
+    .sleep-col { flex: 1; }
+    .sleep-col:first-child { padding-right: 12px; }
+    .sleep-col:last-child  { padding-left: 12px; }
+
+    .sleep-col .label { margin-bottom: 10px; display: block; }
+
+    input[type="time"].sleep-t {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      padding: 14px 16px;
+      border: 1.5px solid var(--line) !important;
+      border-radius: 12px;
+      background: var(--fill);
+      color: var(--text);
+      touch-action: manipulation;
+      min-height: 56px;
+      cursor: pointer;
+      width: 100%;
+      display: block;
+    }
+    input[type="time"].sleep-t:focus {
+      border-color: var(--text) !important;
+      background: var(--bg);
+    }
+
+    .dur-line {
+      margin-top: 14px;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    /* メモ */
+    textarea {
+      width: 100%;
+      min-height: 88px;
+      border: none;
+      border-bottom: 1.5px solid var(--line);
+      background: transparent;
+      font-size: 16px;
+      font-family: inherit;
+      color: var(--text);
+      resize: none;
+      outline: none;
+      line-height: 1.65;
+      padding: 4px 0 12px;
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    .char-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 6px; }
+
+    /* フッター */
+    .main-footer { padding: 36px 28px 0; display: flex; flex-direction: column; gap: 12px; }
+
+    /* 通知 */
+    .notif-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .notif-left h3 { font-size: 16px; font-weight: 500; }
+    .notif-left p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    .toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--line); border-radius: 16px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .toggle-track::before {
+      content: ''; position: absolute;
+      width: 27px; height: 27px; left: 2px; top: 2px;
+      background: white; border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+    }
+    .toggle input:checked + .toggle-track { background: var(--text); }
+    .toggle input:checked + .toggle-track::before { transform: translateX(20px); }
+
+    .notif-time {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .notif-time p { font-size: 15px; color: var(--muted); }
+    .notif-time input {
+      font-size: 16px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border: 1.5px solid var(--line) !important;
+      border-radius: 8px;
+      width: auto;
+      border-bottom: 1.5px solid var(--line) !important;
+    }
+
+    .leave-btn {
+      background: none; border: none;
+      font-size: 14px; color: var(--muted);
+      cursor: pointer; font-family: inherit;
+      padding: 8px 0; text-align: center;
+    }
+    .leave-btn:active { opacity: 0.5; }
+
+    /* ── みんなタブ ────── */
+    .member-block {
+      padding: 20px;
+      background: var(--fill);
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+
+    .mb-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .mb-name { font-size: 17px; font-weight: 600; }
+    .mb-you  { font-size: 12px; color: var(--muted); margin-left: 6px; }
+    .mb-score { font-size: 14px; color: var(--muted); }
+
+    .mb-habits { display: flex; flex-direction: column; gap: 10px; }
+
+    .mb-habit {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .mb-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--line); flex-shrink: 0; transition: background 0.2s;
+    }
+    .mb-dot.on { background: var(--text); }
+    .mb-hname { font-size: 15px; color: var(--muted); transition: color 0.2s; }
+    .mb-hname.on { color: var(--text); }
+
+    .mb-sleep {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      gap: 14px;
+    }
+    .mb-sleep b { color: var(--text); font-weight: 500; }
+
+    .mb-memo {
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── モーダル ────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.2);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 100;
+      align-items: flex-end; justify-content: center;
+    }
+    .overlay.on { display: flex; }
+
+    .sheet {
+      background: var(--bg);
+      border-radius: 20px 20px 0 0;
+      padding: 14px 28px 52px;
+      width: 100%; max-width: 480px;
+      max-height: 90vh; overflow-y: auto;
+    }
+
+    .handle {
+      width: 36px; height: 4px;
+      background: var(--line); border-radius: 2px;
+      margin: 0 auto 28px;
+    }
+
+    .sheet h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .sheet-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+
+    .edit-rows { display: flex; flex-direction: column; gap: 0; margin-bottom: 16px; }
+
+    .edit-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .edit-row input {
+      flex: 1;
+      font-size: 16px;
+      padding: 16px 0;
+      border-bottom: none;
+    }
+    .edit-row input:focus { border-bottom: none; }
+
+    .del { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px; }
+    .del:active { opacity: 0.4; }
+
+    .add-row {
+      width: 100%; padding: 16px 0;
+      background: none; border: none;
+      font-size: 16px; color: var(--muted);
+      cursor: pointer; font-family: inherit;
+      text-align: left; border-bottom: 1px dashed var(--line);
+      margin-bottom: 28px;
+    }
+    .add-row:active { opacity: 0.5; }
+
+    .sheet-btns { display: flex; gap: 10px; }
+
+    /* 履歴シート */
+    .stat-trio { display: flex; gap: 1px; margin-bottom: 32px; background: var(--line); border-radius: 12px; overflow: hidden; }
+    .stat-box { flex: 1; background: var(--bg); padding: 18px 12px; text-align: center; }
+    .stat-n { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; }
+    .stat-l { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 500; }
+
+    .cal-head { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 6px; }
+    .cal-hl { font-size: 10px; color: var(--muted); text-align: center; font-weight: 600; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+    .cal-cell { aspect-ratio: 1; border-radius: 50%; background: var(--fill); }
+    .cal-cell.on { background: var(--text); }
+    .cal-cell.today { box-shadow: 0 0 0 2px var(--muted); }
+    .cal-cell.today.on { box-shadow: none; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.85); color: white;
+      padding: 10px 18px; border-radius: 20px;
+      font-size: 13px; font-weight: 500;
+      opacity: 0; transition: opacity 0.2s;
+      pointer-events: none; white-space: nowrap; z-index: 300;
+    }
+    .toast.on { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- セットアップ -->
+<div class="screen" id="setup">
+  <div class="setup-head">
+    <span class="label">習慣トラッカー</span>
+    <h1>はじめよう</h1>
+  </div>
+
+  <input type="text" id="s-name" placeholder="あなたの名前" maxlength="12" autocomplete="off">
+  <input type="text" id="s-pin" placeholder="PIN（4桁の数字）" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+  <input type="text" id="s-mycode" placeholder="ルームコード（省略するとランダム生成）" maxlength="8" autocomplete="off" style="text-transform:uppercase;letter-spacing:.08em">
+  <button class="btn-main" onclick="createRoom()">ルームを作る</button>
+
+  <div class="setup-divider">または</div>
+
+  <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:4px">
+    名前・PINを入力してコードで参加すると、別端末でも同じユーザーで入れます。
+  </p>
+  <div class="join-row">
+    <input type="text" id="s-joincode" placeholder="ルームコード" maxlength="8" autocomplete="off" style="text-transform:uppercase">
+    <button class="btn-join" onclick="joinRoom()">参加</button>
+  </div>
+
+  <div class="setup-err" id="s-err"></div>
+</div>
+
+<!-- メイン -->
+<div class="screen" id="main">
+  <div class="main-top">
+    <div class="top-row">
+      <div class="header-date-nav">
+        <button class="hd-btn" onclick="changeDate(-1)">←</button>
+        <button class="hd-lbl" id="date-lbl" onclick="openDatePicker()"></button>
+        <input type="date" id="date-picker-hidden" onchange="onDatePick(this.value)">
+        <button class="hd-btn" id="date-nav-next" onclick="changeDate(1)">→</button>
+      </div>
+      <span class="chip" id="room-chip" style="display:none" onclick="copyCode()"></span>
+    </div>
+    <h1 id="greeting" onclick="openNameEdit()" style="cursor:pointer;-webkit-tap-highlight-color:transparent"></h1>
+    <p class="sub-line" id="sub-line"></p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" id="t-mine" onclick="sw('mine')">自分</button>
+    <button class="tab"    id="t-all"  onclick="sw('all')">みんな</button>
+  </div>
+
+  <!-- 自分 -->
+  <div class="panel on" id="p-mine">
+    <div id="h-list"></div>
+    <div class="empty" id="h-empty" style="display:none">習慣がまだありません。<br>下のボタンから追加できます。</div>
+    <div id="prog-wrap" style="display:none">
+      <div class="prog-row">
+        <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
+        <span class="prog-num" id="prog-num"></span>
+      </div>
+    </div>
+    <div class="done-bar" id="done-bar">今日もお疲れさまでした</div>
+
+    <div class="section">
+      <span class="label">睡眠</span>
+      <div class="sleep-grid">
+        <div class="sleep-col">
+          <span class="label">就寝</span>
+          <input type="time" class="sleep-t" id="sl-bed" onchange="saveSleep()">
+        </div>
+        <div class="sleep-col">
+          <span class="label">起床</span>
+          <input type="time" class="sleep-t" id="sl-wake" onchange="saveSleep()">
+        </div>
+      </div>
+      <div class="dur-line" id="dur-line"></div>
+    </div>
+
+    <div class="section">
+      <span class="label">今日のメモ</span>
+      <textarea id="memo" placeholder="気づき、体調、ひとことメモ…" maxlength="500" oninput="onMemo()"></textarea>
+      <div class="char-count" id="char-count">0 / 500</div>
+    </div>
+  </div>
+
+  <!-- みんな -->
+  <div class="panel" id="p-all">
+    <div id="all-list"></div>
+  </div>
+
+  <div class="main-footer">
+    <button class="btn-main" onclick="openEdit()">習慣を編集する</button>
+    <div>
+      <div class="notif-row">
+        <div class="notif-left">
+          <h3>毎日リマインダー</h3>
+          <p id="n-sub">オフ</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="n-tog" onchange="togNotif(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="notif-time" id="n-time">
+        <p>通知時刻</p>
+        <input type="time" id="n-t" value="21:00" onchange="chgTime(this.value)">
+      </div>
+    </div>
+    <button class="leave-btn" onclick="leaveRoom()">このデバイスだけ抜ける</button>
+    <button class="leave-btn" style="color:#ff3b30" onclick="leaveRoomFull()">ルームから完全に退会（データ削除）</button>
+  </div>
+</div>
+
+<!-- 習慣編集 -->
+<div class="overlay" id="edit-ol" onclick="closeOl(event,'edit-ol')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>習慣を編集</h2>
+    <p class="sheet-sub">最大10個まで登録できます</p>
+    <div class="edit-rows" id="edit-rows"></div>
+    <button class="add-row" id="add-btn" onclick="addRow()">＋ 習慣を追加</button>
+    <div class="sheet-btns">
+      <button class="btn-sub" onclick="closeSheet('edit-ol')">キャンセル</button>
+      <button class="btn-main" onclick="saveEdit()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 履歴 -->
+<div class="overlay" id="hist-ol" onclick="closeOl(event,'hist-ol')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2 id="h-title"></h2>
+    <p class="sheet-sub" id="h-sub"></p>
+    <div class="stat-trio" id="stat-trio"></div>
+    <div class="label" style="margin-bottom:12px">過去35日</div>
+    <div class="cal-head" id="cal-head"></div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div style="margin-top:24px">
+      <button class="btn-sub" onclick="closeSheet('hist-ol')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 名前変更 -->
+<div class="overlay" id="name-ol" onclick="closeOl(event,'name-ol')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2>名前を変更</h2>
+    <input type="text" id="name-input" maxlength="12" autocomplete="off" placeholder="新しい名前">
+    <div class="sheet-btns" style="margin-top:24px">
+      <button class="btn-sub" onclick="closeSheet('name-ol')">キャンセル</button>
+      <button class="btn-main" onclick="saveName()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ FIREBASE CONFIG ★
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━
+const FB = {
+  apiKey:            "AIzaSyDslTB3SKnDe7EhvlLcZxA7a1U3_6eHnFs",
+  authDomain:        "task-a1f6a.firebaseapp.com",
+  databaseURL:       "https://task-a1f6a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "task-a1f6a",
+  storageBucket:     "task-a1f6a.firebasestorage.app",
+  messagingSenderId: "241242032746",
+  appId:             "1:241242032746:web:e4556711b9289de0355813"
+};
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const KU = 'uv1', KR = 'rv1', KN = 'nv1';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const dk  = d  => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today = () => dk(new Date());
+const gid = () => Math.random().toString(36).slice(2,10);
+const gc  = () => Math.random().toString(36).slice(2,8).toUpperCase();
+
+function toast(m) {
+  const t=$('toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2000);
+}
+
+function getU() { try{return JSON.parse(localStorage.getItem(KU));}catch{return null;} }
+function getR() { return localStorage.getItem(KR); }
+function setU(u){ localStorage.setItem(KU,JSON.stringify(u)); }
+function setR(c){ localStorage.setItem(KR,c); }
+
+// Firebase
+let db=null;
+const fbOk=(()=>{
+  if(FB.apiKey==='YOUR_API_KEY') return false;
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(FB);
+    db=firebase.database(); return true;
+  }catch(e){console.error(e);return false;}
+})();
+
+// セットアップ
+async function createRoom(){
+  const name = $('s-name').value.trim();
+  const pin  = $('s-pin').value.trim();
+  const raw  = $('s-mycode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!name){$('s-name').focus();return;}
+  if(!pin||!/^\d{4}$/.test(pin)){setErr('PINは4桁の数字で入力してください');$('s-pin').focus();return;}
+  if(raw&&(raw.length<3||raw.length>8)){setErr('コードは3〜8文字で入力してください');return;}
+  if(!fbOk){setErr('Firebase設定が必要です');return;}
+  const uid=gid(), code=raw||gc();
+  if(raw){
+    const s=await db.ref(`rooms/${code}`).once('value');
+    if(s.exists()){setErr('そのコードはすでに使われています');return;}
+  }
+  try{
+    await db.ref(`rooms/${code}`).set({createdAt:Date.now(),members:{[uid]:{name,pin,joinedAt:Date.now()}}});
+    setU({id:uid,name}); setR(code); boot();
+  }catch(e){setErr('作成失敗: '+e.message);}
+}
+
+async function joinRoom(){
+  const name = $('s-name').value.trim();
+  const pin  = $('s-pin').value.trim();
+  const code = $('s-joincode').value.trim().toUpperCase();
+  if(!name){$('s-name').focus();return;}
+  if(!pin||!/^\d{4}$/.test(pin)){setErr('PINは4桁の数字で入力してください');$('s-pin').focus();return;}
+  if(!code){$('s-joincode').focus();return;}
+  if(!fbOk){setErr('Firebase設定が必要です');return;}
+  try{
+    const snap=await db.ref(`rooms/${code}`).once('value');
+    if(!snap.exists()){setErr('ルームが見つかりません');return;}
+    const members=snap.val().members||{};
+
+    // 既存ユーザーを名前+PINで検索
+    const existing=Object.entries(members).find(([,m])=>m.name===name&&m.pin===pin);
+    if(existing){
+      // 別端末から同じユーザーで復元
+      setU({id:existing[0],name}); setR(code); boot();
+    } else {
+      // 新規メンバーとして参加
+      const uid=gid();
+      await db.ref(`rooms/${code}/members/${uid}`).set({name,pin,joinedAt:Date.now()});
+      setU({id:uid,name}); setR(code); boot();
+    }
+  }catch(e){setErr('参加失敗: '+e.message);}
+}
+function setErr(m){const e=$('s-err');e.textContent=m;e.style.display='block';}
+
+// 状態
+let myH={},myL={},allH={},allL={},allM={},allSl={},allMe={},allRe={};
+let selDate='', logRef=null, slRef=null, meRef=null, reRef=null;
+let memoT=null;
+
+function boot(){
+  $('setup').style.display='none';
+  const main=$('main'); main.style.display='flex';
+
+  const d=new Date(), days=['日','月','火','水','木','金','土'];
+  const h=d.getHours();
+  const gr=h<12?'おはよう':h<18?'こんにちは':'こんばんは';
+  $('greeting').textContent=`${gr}、${getU().name}`;
+
+  const code=getR();
+  if(code){const c=$('room-chip');c.style.display='';c.textContent=code;}
+
+  selDate=today(); updateDateNav();
+  renderN();
+
+  if(!fbOk) return;
+  const uid=getU().id, tod=today();
+
+  db.ref(`rooms/${code}/habits`).on('value',s=>{
+    allH=s.val()||{}; myH=allH[uid]||{}; renderMine(); renderAll();
+  });
+  resubLogs(); resubSleepAll(); resubMemoAll(); resubReactions();
+  db.ref(`rooms/${code}/members`).on('value',s=>{
+    allM=s.val()||{}; renderAll();
+  });
+  loadSlForDate(); loadMemoForDate();
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').then(()=>swSched());
+  }
+}
+
+function openNameEdit(){
+  $('name-input').value=getU().name;
+  $('name-ol').classList.add('on');
+  setTimeout(()=>$('name-input').focus(),300);
+}
+async function saveName(){
+  const name=$('name-input').value.trim();
+  if(!name) return;
+  const u=getU(); setU({...u,name});
+  $('greeting').textContent=$('greeting').textContent.replace(/、.*$/,`、${name}`);
+  if(fbOk) await db.ref(`rooms/${getR()}/members/${u.id}/name`).set(name);
+  closeSheet('name-ol');
+  toast('名前を変更しました');
+}
+
+function copyCode(){
+  const c=getR(); if(!c) return;
+  if(navigator.clipboard) navigator.clipboard.writeText(c).then(()=>toast('コードをコピーしました'));
+  else toast('コード: '+c);
+}
+
+// タブ
+let curTab='mine';
+function sw(tab){
+  curTab=tab;
+  ['mine','all'].forEach(t=>{
+    $(`p-${t}`).classList.toggle('on',t===tab);
+    $(`t-${t}`).classList.toggle('on',t===tab);
+  });
+}
+
+// 自分タブ
+function renderMine(){
+  const uid=getU().id;
+  const entries=Object.entries(myH).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  const list=$('h-list'); list.innerHTML='';
+
+  if(!entries.length){
+    $('h-empty').style.display='block';
+    $('prog-wrap').style.display='none';
+    $('done-bar').classList.remove('on');
+    $('sub-line').innerHTML='';
+    return;
+  }
+  $('h-empty').style.display='none';
+  $('prog-wrap').style.display='block';
+
+  entries.forEach(([hid,h])=>{
+    const done=!!myL[hid];
+    const row=document.createElement('div');
+    row.className='habit-row'+(done?' done':'');
+    row.innerHTML=`
+      <div class="habit-body">
+        <h3>${esc(h.name)}</h3>
+        <div class="streak-txt" id="sk-${hid}"></div>
+      </div>
+      <button class="hist-btn" data-hid="${hid}">↗</button>
+      <div class="circle"><span class="circle-check">✓</span></div>`;
+    row.querySelector('.habit-body').onclick=()=>tog(hid);
+    row.querySelector('.circle').onclick=()=>tog(hid);
+    row.querySelector('.hist-btn').onclick=e=>{e.stopPropagation();openHist(hid,h.name);};
+    list.appendChild(row);
+    loadStreak(uid,hid);
+  });
+
+  const tot=entries.length, dn=entries.filter(([id])=>myL[id]).length;
+  const isToday=selDate===today();
+  $('prog-fill').style.width=(tot?Math.round(dn/tot*100):0)+'%';
+  $('prog-num').textContent=`${dn} / ${tot}`;
+  $('sub-line').innerHTML=tot?`${isToday?'今日':'この日'} <strong>${dn} / ${tot}</strong> 完了`:'';
+  $('done-bar').classList.toggle('on',dn===tot&&tot>0);
+}
+
+async function loadStreak(uid,hid){
+  if(!fbOk) return;
+  const s=await db.ref(`rooms/${getR()}/logs`).once('value');
+  const logs=s.val()||{};
+  let streak=0;
+  const d0=new Date();
+  for(let i=0;i<365;i++){
+    const d=new Date(d0); d.setDate(d.getDate()-i);
+    if(logs[dk(d)]?.[uid]?.[hid]) streak++;
+    else{if(i>0)break;}
+  }
+  const el=$(`sk-${hid}`);
+  if(el) el.textContent=streak>1?`🔥 ${streak}日連続`:streak===1?'今日達成':'今日から始めよう';
+}
+
+async function tog(hid){
+  if(!fbOk) return;
+  const ref=db.ref(`rooms/${getR()}/logs/${selDate}/${getU().id}/${hid}`);
+  if(myL[hid]) await ref.remove(); else await ref.set(true);
+}
+
+// みんなタブ
+function renderAll(){
+  const uid=getU().id;
+  const wrap=$('all-list'); wrap.innerHTML='';
+  Object.entries(allM).sort((a,b)=>(a[1].joinedAt||0)-(b[1].joinedAt||0)).forEach(([mid,m])=>{
+    const hs=allH[mid]||{}, ls=allL[mid]||{}, sl=allSl[mid]||{}, me=allMe[mid]||'';
+    const entries=Object.entries(hs).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+    const done=entries.filter(([id])=>ls[id]).length;
+    const isYou=mid===uid;
+    const re=allRe[mid]||{};
+    const likes=Object.keys(re.likes||{}).length;
+    const cries=Object.keys(re.cries||{}).length;
+    const iLiked=!!(re.likes?.[uid]), iCried=!!(re.cries?.[uid]);
+
+    const block=document.createElement('div');
+    block.className='member-block';
+    const habHtml=entries.length
+      ?entries.map(([hid,h])=>`<div class="mb-habit"><div class="mb-dot${ls[hid]?' on':''}"></div><span class="mb-hname${ls[hid]?' on':''}">${esc(h.name)}</span></div>`).join('')
+      :'<span style="font-size:14px;color:var(--muted)">習慣未設定</span>';
+
+    const slHtml=(sl.bed||sl.wake)?`<div class="mb-sleep">${sl.bed?`就寝 <b>${sl.bed}</b>`:''} ${sl.wake?`起床 <b>${sl.wake}</b>`:''} ${sl.bed&&sl.wake?`<b>${dur(sl.bed,sl.wake)}</b>`:''}</div>`:'';
+    const meHtml=me?`<div class="mb-memo">${esc(me)}</div>`:'';
+    const reactHtml=isYou?'':
+      `<div class="react-row">
+        <button class="react-btn${iLiked?' on':''}" onclick="togReact('${mid}','likes')">👍 <span class="react-cnt">${likes||''}</span></button>
+        <button class="react-btn${iCried?' on':''}" onclick="togReact('${mid}','cries')">😢 <span class="react-cnt">${cries||''}</span></button>
+      </div>`;
+
+    block.innerHTML=`
+      <div class="mb-head">
+        <div><span class="mb-name">${esc(m.name)}</span>${isYou?'<span class="mb-you">自分</span>':''}</div>
+        <span class="mb-score">${entries.length?done+' / '+entries.length:''}</span>
+      </div>
+      <div class="mb-habits">${habHtml}</div>
+      ${slHtml}${meHtml}${reactHtml}`;
+    wrap.appendChild(block);
+  });
+}
+
+// 履歴
+async function openHist(hid,name){
+  $('h-title').textContent=name;
+  $('h-sub').textContent='集計中…';
+  $('hist-ol').classList.add('on');
+  if(!fbOk) return;
+  const s=await db.ref(`rooms/${getR()}/logs`).once('value');
+  const logs=s.val()||{}, uid=getU().id, d0=new Date();
+
+  let streak=0,best=0,run=0,d30=0;
+  for(let i=0;i<365;i++){
+    const d=new Date(d0); d.setDate(d.getDate()-i);
+    const hit=!!(logs[dk(d)]?.[uid]?.[hid]);
+    if(i<30&&hit) d30++;
+    if(hit){if(i===0||streak>0)streak++;}
+    else if(i>0&&streak>0) break;
+  }
+  for(let i=364;i>=0;i--){
+    const d=new Date(d0); d.setDate(d.getDate()-i);
+    if(logs[dk(d)]?.[uid]?.[hid]){run++;best=Math.max(best,run);}else run=0;
+  }
+  const rate=Math.round(d30/30*100);
+  $('h-sub').textContent=`過去30日間の達成率 ${rate}%`;
+  $('stat-trio').innerHTML=`
+    <div class="stat-box"><div class="stat-n">${streak}</div><div class="stat-l">現在の連続</div></div>
+    <div class="stat-box"><div class="stat-n">${best}</div><div class="stat-l">最長連続</div></div>
+    <div class="stat-box"><div class="stat-n">${rate}%</div><div class="stat-l">30日達成率</div></div>`;
+
+  $('cal-head').innerHTML=['日','月','火','水','木','金','土'].map(l=>`<div class="cal-hl">${l}</div>`).join('');
+  const grid=$('cal-grid'); grid.innerHTML='';
+  for(let i=34;i>=0;i--){
+    const d=new Date(d0); d.setDate(d.getDate()-i);
+    const done=!!(logs[dk(d)]?.[uid]?.[hid]);
+    const c=document.createElement('div');
+    c.className='cal-cell'+(done?' on':'')+(i===0?' today':'');
+    grid.appendChild(c);
+  }
+}
+
+// 日付ナビ
+function changeDate(delta){
+  const d=new Date(selDate+'T00:00:00');
+  d.setDate(d.getDate()+delta);
+  const next=dk(d);
+  if(next>today()) return;
+  selDate=next;
+  updateDateNav();
+  resubLogs(); resubSleepAll(); resubMemoAll(); resubReactions();
+  loadSlForDate(); loadMemoForDate();
+}
+function updateDateNav(){
+  const d=new Date(selDate+'T00:00:00');
+  const days=['日','月','火','水','木','金','土'];
+  const isToday=selDate===today();
+  $('date-lbl').textContent=isToday
+    ?`${d.getMonth()+1}月${d.getDate()}日 ${days[d.getDay()]}曜日`
+    :`${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+  $('date-nav-next').disabled=isToday;
+}
+function openDatePicker(){
+  const inp=$('date-picker-hidden');
+  inp.max=today(); inp.value=selDate;
+  if(inp.showPicker) inp.showPicker(); else inp.click();
+}
+function onDatePick(val){
+  if(!val||val>today()) return;
+  selDate=val;
+  updateDateNav(); resubLogs(); resubSleepAll(); resubMemoAll(); resubReactions(); loadSlForDate(); loadMemoForDate();
+}
+function resubLogs(){
+  const code=getR();
+  if(!fbOk||!code) return;
+  if(logRef) logRef.off('value');
+  logRef=db.ref(`rooms/${code}/logs/${selDate}`);
+  logRef.on('value',s=>{
+    allL=s.val()||{}; myL=allL[getU().id]||{}; renderMine(); renderAll();
+  });
+}
+function resubSleepAll(){
+  const code=getR();
+  if(!fbOk||!code) return;
+  if(slRef) slRef.off('value');
+  slRef=db.ref(`rooms/${code}/sleep/${selDate}`);
+  slRef.on('value',s=>{ allSl=s.val()||{}; renderAll(); });
+}
+function resubMemoAll(){
+  const code=getR();
+  if(!fbOk||!code) return;
+  if(meRef) meRef.off('value');
+  meRef=db.ref(`rooms/${code}/memos/${selDate}`);
+  meRef.on('value',s=>{ allMe=s.val()||{}; renderAll(); });
+}
+function resubReactions(){
+  const code=getR();
+  if(!fbOk||!code) return;
+  if(reRef) reRef.off('value');
+  reRef=db.ref(`rooms/${code}/reactions/${selDate}`);
+  reRef.on('value',s=>{ allRe=s.val()||{}; renderAll(); });
+}
+async function togReact(targetUid,type){
+  if(!fbOk) return;
+  const uid=getU().id;
+  const ref=db.ref(`rooms/${getR()}/reactions/${selDate}/${targetUid}/${type}/${uid}`);
+  const on=!!(allRe[targetUid]?.[type]?.[uid]);
+  if(on) await ref.remove(); else await ref.set(true);
+}
+
+// 睡眠
+function loadSlForDate(){
+  $('sl-bed').value=''; $('sl-wake').value=''; updDur();
+  if(!fbOk) return;
+  db.ref(`rooms/${getR()}/sleep/${selDate}/${getU().id}`).once('value').then(s=>{
+    const v=s.val()||{};
+    if(v.bed)  $('sl-bed').value=v.bed;
+    if(v.wake) $('sl-wake').value=v.wake;
+    updDur();
+  });
+}
+async function saveSleep(){
+  updDur();
+  if(!fbOk) return;
+  const bed=$('sl-bed').value, wake=$('sl-wake').value;
+  await db.ref(`rooms/${getR()}/sleep/${selDate}/${getU().id}`).set({bed,wake});
+}
+function updDur(){
+  const b=$('sl-bed').value, w=$('sl-wake').value;
+  $('dur-line').textContent=b&&w?'睡眠時間 '+dur(b,w):'';
+}
+function dur(b,w){
+  const[bh,bm]=b.split(':').map(Number),[wh,wm]=w.split(':').map(Number);
+  let m=(wh*60+wm)-(bh*60+bm); if(m<0)m+=1440;
+  return Math.floor(m/60)+'時間'+(m%60?m%60+'分':'');
+}
+
+// メモ
+function onMemo(){
+  updCount();
+  clearTimeout(memoT);
+  memoT=setTimeout(saveMemo,800);
+}
+function updCount(){
+  const t=$('memo'); if(t) $('char-count').textContent=`${t.value.length} / 500`;
+}
+async function saveMemo(){
+  if(!fbOk) return;
+  const text=$('memo').value;
+  const ref=db.ref(`rooms/${getR()}/memos/${selDate}/${getU().id}`);
+  if(text.trim()) await ref.set(text); else await ref.remove();
+}
+function loadMemoForDate(){
+  const ta=$('memo'); if(!ta) return;
+  ta.value=''; updCount();
+  if(!fbOk) return;
+  db.ref(`rooms/${getR()}/memos/${selDate}/${getU().id}`).once('value').then(s=>{
+    if(document.activeElement!==ta){ta.value=s.val()||''; updCount();}
+  });
+}
+
+// 編集
+let editItems=[];
+function openEdit(){
+  editItems=Object.entries(myH).sort((a,b)=>(a[1].order||0)-(b[1].order||0)).map(([id,h])=>({id,name:h.name,order:h.order||0}));
+  renderRows();
+  $('edit-ol').classList.add('on');
+}
+function renderRows(){
+  const el=$('edit-rows'); el.innerHTML='';
+  editItems.forEach((it,i)=>{
+    const r=document.createElement('div');
+    r.className='edit-row';
+    r.innerHTML=`<input type="text" value="${esc(it.name)}" placeholder="習慣の名前" maxlength="20" oninput="editItems[${i}].name=this.value">
+      <button class="del" onclick="rmRow(${i})">×</button>`;
+    el.appendChild(r);
+  });
+  $('add-btn').style.display=editItems.length>=10?'none':'';
+}
+function addRow(){
+  if(editItems.length>=10) return;
+  editItems.push({id:gid(),name:'',order:editItems.length});
+  renderRows();
+  setTimeout(()=>document.querySelectorAll('.edit-row input')[editItems.length-1]?.focus(),50);
+}
+function rmRow(i){editItems.splice(i,1);renderRows();}
+async function saveEdit(){
+  if(!fbOk) return;
+  const obj={};
+  editItems.filter(h=>h.name.trim()).forEach((h,i)=>{obj[h.id]={name:h.name.trim(),order:i};});
+  try{await db.ref(`rooms/${getR()}/habits/${getU().id}`).set(obj);closeSheet('edit-ol');}
+  catch(e){toast('保存に失敗しました');}
+}
+
+// モーダル
+function closeSheet(id){$(id).classList.remove('on');}
+function closeOl(e,id){if(e.target===$(id))closeSheet(id);}
+
+// 退室
+function leaveRoom(){
+  const choice = confirm(
+    'このデバイスだけ抜ける → OK\n\nルームから完全に退会（全データ削除）→ キャンセル後に長押し'
+  );
+  if(choice){
+    // このデバイスのみ → localStorageを消すだけ（Firebaseのデータは残る）
+    localStorage.removeItem(KU); localStorage.removeItem(KR); location.reload();
+  }
+}
+
+async function leaveRoomFull(){
+  if(!confirm('ルームから完全に退会します。\n習慣・ログ・睡眠・メモが全て削除されます。\n本当によいですか？')) return;
+  if(!fbOk){ localStorage.removeItem(KU); localStorage.removeItem(KR); location.reload(); return; }
+  const code=getR(), uid=getU().id;
+  try{
+    // 全データをFirebaseから削除
+    await db.ref(`rooms/${code}/members/${uid}`).remove();
+    await db.ref(`rooms/${code}/habits/${uid}`).remove();
+    // logsは日付ごとなので全件削除
+    const logsSnap=await db.ref(`rooms/${code}/logs`).once('value');
+    const logs=logsSnap.val()||{};
+    const removes=Object.keys(logs).map(date=>db.ref(`rooms/${code}/logs/${date}/${uid}`).remove());
+    const slSnap=await db.ref(`rooms/${code}/sleep`).once('value');
+    const sl=slSnap.val()||{};
+    const slRemoves=Object.keys(sl).map(date=>db.ref(`rooms/${code}/sleep/${date}/${uid}`).remove());
+    const meSnap=await db.ref(`rooms/${code}/memos`).once('value');
+    const me=meSnap.val()||{};
+    const meRemoves=Object.keys(me).map(date=>db.ref(`rooms/${code}/memos/${date}/${uid}`).remove());
+    await Promise.all([...removes,...slRemoves,...meRemoves]);
+    localStorage.removeItem(KU); localStorage.removeItem(KR); location.reload();
+  }catch(e){ alert('エラー: '+e.message); }
+}
+
+// 通知
+function loadN(){try{return JSON.parse(localStorage.getItem(KN))||{on:false,t:'21:00'};}catch{return{on:false,t:'21:00'};}}
+function saveN(s){localStorage.setItem(KN,JSON.stringify(s));}
+function renderN(){
+  const s=loadN();
+  $('n-tog').checked=s.on; $('n-t').value=s.t;
+  $('n-time').style.display=s.on?'flex':'none';
+  $('n-sub').textContent=s.on?`毎日 ${s.t} に通知`:'オフ';
+}
+async function togNotif(on){
+  if(on&&'Notification' in window){
+    const p=await Notification.requestPermission();
+    if(p!=='granted'){$('n-tog').checked=false;return;}
+  }
+  const s=loadN(); s.on=on; saveN(s); renderN(); swSched();
+}
+function chgTime(t){const s=loadN();s.t=t;saveN(s);renderN();swSched();}
+function swSched(){
+  if(!('serviceWorker' in navigator)) return;
+  const s=loadN();
+  navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'SCHEDULE',enabled:s.on,time:s.t}));
+}
+
+// 起動
+if(getU()&&getR()) boot();
+else $('setup').style.display='flex';
+</script>
+</body>
+</html>
