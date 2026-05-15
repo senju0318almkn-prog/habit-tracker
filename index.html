@@ -565,27 +565,29 @@
       gap: 10px;
       border-bottom: 1px solid var(--line);
     }
-    .edit-row .er-name {
+    .edit-row input {
       flex: 1;
       font-size: 16px;
       padding: 16px 0;
       border-bottom: none;
     }
-    .edit-row .er-name:focus { border-bottom: none; }
-    .edit-row .er-time {
-      width: 88px;
-      font-size: 14px;
-      padding: 16px 0;
-      border-bottom: none;
-      color: var(--muted);
-      text-align: right;
-    }
-    .edit-row .er-time:focus { border-bottom: none; }
-    .habit-time {
+    .edit-row input:focus { border-bottom: none; }
+    .habit-time-line {
       font-size: 12px;
       color: var(--muted);
       margin-top: 2px;
     }
+    .time-btn {
+      font-size: 16px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 2px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .time-btn:active { opacity: 0.4; }
 
     .del { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px; }
     .del:active { opacity: 0.4; }
@@ -765,6 +767,29 @@
     <div class="cal-grid" id="cal-grid"></div>
     <div style="margin-top:24px">
       <button class="btn-sub" onclick="closeSheet('hist-ol')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 習慣の時間 -->
+<div class="overlay" id="habit-time-ol" onclick="closeOl(event,'habit-time-ol')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2 id="ht-sheet-name"></h2>
+    <p class="sheet-sub">この日の実施時間を記録</p>
+    <div class="sleep-grid">
+      <div class="sleep-col">
+        <span class="label">開始</span>
+        <input type="time" class="sleep-t" id="ht-start">
+      </div>
+      <div class="sleep-col">
+        <span class="label">終了</span>
+        <input type="time" class="sleep-t" id="ht-end">
+      </div>
+    </div>
+    <div class="sheet-btns" style="margin-top:28px">
+      <button class="btn-sub" onclick="clearHabitTime()">時間を削除</button>
+      <button class="btn-main" onclick="saveHabitTime()">保存する</button>
     </div>
   </div>
 </div>
@@ -964,25 +989,30 @@ function renderMine(){
   $('prog-wrap').style.display='block';
 
   entries.forEach(([hid,h])=>{
-    const done=!!myL[hid];
+    const done=!!(myL[hid]?.done??myL[hid]);
     const row=document.createElement('div');
     row.className='habit-row'+(done?' done':'');
     row.innerHTML=`
       <div class="habit-body">
         <h3>${esc(h.name)}</h3>
-        ${h.time?`<div class="habit-time">${h.time}</div>`:''}
+        <div class="habit-time-line" id="ht-${hid}"></div>
         <div class="streak-txt" id="sk-${hid}"></div>
       </div>
+      <button class="time-btn" title="時間を記録">⏱</button>
       <button class="hist-btn" data-hid="${hid}">↗</button>
       <div class="circle"><span class="circle-check">✓</span></div>`;
     row.querySelector('.habit-body').onclick=()=>tog(hid);
     row.querySelector('.circle').onclick=()=>tog(hid);
+    row.querySelector('.time-btn').onclick=e=>{e.stopPropagation();openHabitTime(hid,h.name);};
     row.querySelector('.hist-btn').onclick=e=>{e.stopPropagation();openHist(hid,h.name);};
     list.appendChild(row);
+    // 時間表示を更新
+    const tl=$(`ht-${hid}`);
+    if(tl){const v=myL[hid]; if(v&&typeof v==='object'&&(v.start||v.end))tl.textContent=(v.start||'')+(v.start&&v.end?' → ':'')+(v.end||'');}
     loadStreak(uid,hid);
   });
 
-  const tot=entries.length, dn=entries.filter(([id])=>myL[id]).length;
+  const tot=entries.length, dn=entries.filter(([id])=>!!(myL[id]?.done??myL[id])).length;
   const isToday=selDate===today();
   $('prog-fill').style.width=(tot?Math.round(dn/tot*100):0)+'%';
   $('prog-num').textContent=`${dn} / ${tot}`;
@@ -1008,7 +1038,7 @@ async function loadStreak(uid,hid){
 async function tog(hid){
   if(!fbOk) return;
   const ref=db.ref(`rooms/${getR()}/logs/${selDate}/${getU().id}/${hid}`);
-  if(myL[hid]) await ref.remove(); else await ref.set(true);
+  if(myL[hid]) await ref.remove(); else await ref.set({done:true});
 }
 
 // みんなタブ
@@ -1018,7 +1048,7 @@ function renderAll(){
   Object.entries(allM).sort((a,b)=>(a[1].joinedAt||0)-(b[1].joinedAt||0)).forEach(([mid,m])=>{
     const hs=allH[mid]||{}, ls=allL[mid]||{}, sl=allSl[mid]||{}, me=allMe[mid]||'';
     const entries=Object.entries(hs).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
-    const done=entries.filter(([id])=>ls[id]).length;
+    const done=entries.filter(([id])=>!!(ls[id]?.done??ls[id])).length;
     const isYou=mid===uid;
     const re=allRe[mid]||{};
     const likes=Object.keys(re.likes||{}).length;
@@ -1028,7 +1058,7 @@ function renderAll(){
     const block=document.createElement('div');
     block.className='member-block';
     const habHtml=entries.length
-      ?entries.map(([hid,h])=>`<div class="mb-habit"><div class="mb-dot${ls[hid]?' on':''}"></div><span class="mb-hname${ls[hid]?' on':''}">${esc(h.name)}</span></div>`).join('')
+      ?entries.map(([hid,h])=>{const d=!!(ls[hid]?.done??ls[hid]);return`<div class="mb-habit"><div class="mb-dot${d?' on':''}"></div><span class="mb-hname${d?' on':''}">${esc(h.name)}</span></div>`;}).join('')
       :'<span style="font-size:14px;color:var(--muted)">習慣未設定</span>';
 
     const slHtml=(sl.bed||sl.wake)?`<div class="mb-sleep">${sl.bed?`就寝 <b>${sl.bed}</b>`:''} ${sl.wake?`起床 <b>${sl.wake}</b>`:''} ${sl.bed&&sl.wake?`<b>${dur(sl.bed,sl.wake)}</b>`:''}</div>`:'';
@@ -1087,6 +1117,30 @@ async function openHist(hid,name){
     c.className='cal-cell'+(done?' on':'')+(i===0?' today':'');
     grid.appendChild(c);
   }
+}
+
+// 習慣の時間記録
+let curTimeHid='';
+function openHabitTime(hid,name){
+  curTimeHid=hid;
+  $('ht-sheet-name').textContent=name;
+  const v=myL[hid];
+  $('ht-start').value=(v&&typeof v==='object'&&v.start)||'';
+  $('ht-end').value=(v&&typeof v==='object'&&v.end)||'';
+  $('habit-time-ol').classList.add('on');
+}
+async function saveHabitTime(){
+  if(!fbOk) return;
+  const start=$('ht-start').value, end=$('ht-end').value;
+  const ref=db.ref(`rooms/${getR()}/logs/${selDate}/${getU().id}/${curTimeHid}`);
+  await ref.set({done:true,start,end});
+  closeSheet('habit-time-ol');
+}
+async function clearHabitTime(){
+  if(!fbOk) return;
+  const ref=db.ref(`rooms/${getR()}/logs/${selDate}/${getU().id}/${curTimeHid}`);
+  await ref.set({done:true});
+  closeSheet('habit-time-ol');
 }
 
 // 日付ナビ
@@ -1211,7 +1265,7 @@ function loadMemoForDate(){
 // 編集
 let editItems=[];
 function openEdit(){
-  editItems=Object.entries(myH).sort((a,b)=>(a[1].order||0)-(b[1].order||0)).map(([id,h])=>({id,name:h.name,order:h.order||0,time:h.time||''}));
+  editItems=Object.entries(myH).sort((a,b)=>(a[1].order||0)-(b[1].order||0)).map(([id,h])=>({id,name:h.name,order:h.order||0}));
   renderRows();
   $('edit-ol').classList.add('on');
 }
@@ -1220,8 +1274,7 @@ function renderRows(){
   editItems.forEach((it,i)=>{
     const r=document.createElement('div');
     r.className='edit-row';
-    r.innerHTML=`<input class="er-name" type="text" value="${esc(it.name)}" placeholder="習慣の名前" maxlength="20" oninput="editItems[${i}].name=this.value">
-      <input class="er-time" type="time" value="${it.time}" onchange="editItems[${i}].time=this.value">
+    r.innerHTML=`<input type="text" value="${esc(it.name)}" placeholder="習慣の名前" maxlength="20" oninput="editItems[${i}].name=this.value">
       <button class="del" onclick="rmRow(${i})">×</button>`;
     el.appendChild(r);
   });
@@ -1229,7 +1282,7 @@ function renderRows(){
 }
 function addRow(){
   if(editItems.length>=10) return;
-  editItems.push({id:gid(),name:'',order:editItems.length,time:''});
+  editItems.push({id:gid(),name:'',order:editItems.length});
   renderRows();
   setTimeout(()=>document.querySelectorAll('.edit-row input')[editItems.length-1]?.focus(),50);
 }
@@ -1237,7 +1290,7 @@ function rmRow(i){editItems.splice(i,1);renderRows();}
 async function saveEdit(){
   if(!fbOk) return;
   const obj={};
-  editItems.filter(h=>h.name.trim()).forEach((h,i)=>{obj[h.id]={name:h.name.trim(),order:i,time:h.time||''};});
+  editItems.filter(h=>h.name.trim()).forEach((h,i)=>{obj[h.id]={name:h.name.trim(),order:i};});
   try{await db.ref(`rooms/${getR()}/habits/${getU().id}`).set(obj);closeSheet('edit-ol');}
   catch(e){toast('保存に失敗しました');}
 }
