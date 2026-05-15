@@ -562,16 +562,30 @@
     .edit-row {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       border-bottom: 1px solid var(--line);
     }
-    .edit-row input {
+    .edit-row .er-name {
       flex: 1;
       font-size: 16px;
       padding: 16px 0;
       border-bottom: none;
     }
-    .edit-row input:focus { border-bottom: none; }
+    .edit-row .er-name:focus { border-bottom: none; }
+    .edit-row .er-time {
+      width: 88px;
+      font-size: 14px;
+      padding: 16px 0;
+      border-bottom: none;
+      color: var(--muted);
+      text-align: right;
+    }
+    .edit-row .er-time:focus { border-bottom: none; }
+    .habit-time {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
 
     .del { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px; }
     .del:active { opacity: 0.4; }
@@ -896,6 +910,9 @@ function boot(){
 
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./sw.js').then(()=>swSched());
+    navigator.serviceWorker.addEventListener('message', e=>{
+      if(e.data?.type==='SW_UPDATED') window.location.reload();
+    });
   }
 }
 
@@ -953,6 +970,7 @@ function renderMine(){
     row.innerHTML=`
       <div class="habit-body">
         <h3>${esc(h.name)}</h3>
+        ${h.time?`<div class="habit-time">${h.time}</div>`:''}
         <div class="streak-txt" id="sk-${hid}"></div>
       </div>
       <button class="hist-btn" data-hid="${hid}">↗</button>
@@ -1193,7 +1211,7 @@ function loadMemoForDate(){
 // 編集
 let editItems=[];
 function openEdit(){
-  editItems=Object.entries(myH).sort((a,b)=>(a[1].order||0)-(b[1].order||0)).map(([id,h])=>({id,name:h.name,order:h.order||0}));
+  editItems=Object.entries(myH).sort((a,b)=>(a[1].order||0)-(b[1].order||0)).map(([id,h])=>({id,name:h.name,order:h.order||0,time:h.time||''}));
   renderRows();
   $('edit-ol').classList.add('on');
 }
@@ -1202,7 +1220,8 @@ function renderRows(){
   editItems.forEach((it,i)=>{
     const r=document.createElement('div');
     r.className='edit-row';
-    r.innerHTML=`<input type="text" value="${esc(it.name)}" placeholder="習慣の名前" maxlength="20" oninput="editItems[${i}].name=this.value">
+    r.innerHTML=`<input class="er-name" type="text" value="${esc(it.name)}" placeholder="習慣の名前" maxlength="20" oninput="editItems[${i}].name=this.value">
+      <input class="er-time" type="time" value="${it.time}" onchange="editItems[${i}].time=this.value">
       <button class="del" onclick="rmRow(${i})">×</button>`;
     el.appendChild(r);
   });
@@ -1210,7 +1229,7 @@ function renderRows(){
 }
 function addRow(){
   if(editItems.length>=10) return;
-  editItems.push({id:gid(),name:'',order:editItems.length});
+  editItems.push({id:gid(),name:'',order:editItems.length,time:''});
   renderRows();
   setTimeout(()=>document.querySelectorAll('.edit-row input')[editItems.length-1]?.focus(),50);
 }
@@ -1218,7 +1237,7 @@ function rmRow(i){editItems.splice(i,1);renderRows();}
 async function saveEdit(){
   if(!fbOk) return;
   const obj={};
-  editItems.filter(h=>h.name.trim()).forEach((h,i)=>{obj[h.id]={name:h.name.trim(),order:i};});
+  editItems.filter(h=>h.name.trim()).forEach((h,i)=>{obj[h.id]={name:h.name.trim(),order:i,time:h.time||''};});
   try{await db.ref(`rooms/${getR()}/habits/${getU().id}`).set(obj);closeSheet('edit-ol');}
   catch(e){toast('保存に失敗しました');}
 }
